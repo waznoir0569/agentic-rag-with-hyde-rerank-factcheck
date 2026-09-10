@@ -1,31 +1,29 @@
-# 🤖 LangGraph RAG Agent
+# 🤖 Agentic Retrieval-Augmented Pipeline for Personalized Financial Advisory with Behavioral Personalization and Grounded Legal Retrieval
 
-An agentic Retrieval-Augmented Generation (RAG) system built with **FastAPI** and **LangGraph**, featuring streaming responses, a **PostgreSQL + pgvector** vector store, and a modern **Streamlit** UI. The system supports user authentication, threaded conversations with persistent memory via LangGraph Postgres checkpointers, and tool-augmented reasoning (document retrieval + web search).
+> A stateful, persona-adaptive financial advisory system featuring **HyDE query translation**, **GMM psychometric clustering**, **hybrid legal retrieval (Dense + BM25)**, **Cohere reranking**, and automated **fact-checking loops** built with FastAPI, LangGraph, and Streamlit.
 
-## 🚀 Features
+---
 
-- **Agentic RAG with LangGraph**: ReAct-style agent with tools for document retrieval and web search
-- **Streaming responses end-to-end**: Real-time token streaming from backend to the Streamlit UI
-- **Threaded conversations**: Per-user threads with persistent histories stored via Postgres checkpointers
-- **PostgreSQL + pgvector**: Vector storage and semantic retrieval over user-uploaded documents
-- **Authentication and JWT**: Signup, login, refresh; per-user isolation for threads and docs
-- **Document ingestion**: PDF, DOCX, and TXT support with chunking and async indexing
-- **Tooling**: Built-in `retrieve_user_documents` and Tavily web search integration
-- **Async-first backend**: FastAPI + SQLAlchemy 2.0 async, production-ready logging and healthchecks
+## 💡 Key Architectural Highlights
+
+- **🧠 GMM Behavioral Profiling**: Classifies users into 4 latent financial personas (e.g., *Anxious Saver*, *Risk-Tolerant*) via psychometric intake to dynamically adapt response tone and risk framing.
+- **🔄 HyDE Query Translation**: Decomposes legal queries into sub-queries and generates synthetic legal passages (Hypothetical Document Embeddings) to improve semantic matching.
+- **🔀 Hybrid Retrieval & RRF**: Parallel dense vector search (`text-embedding-3-small`) and sparse keyword search (`BM25`), fused using **Reciprocal Rank Fusion (RRF)** and rescored via **Cohere Reranker (`rerank-v3.5`)**.
+- **⚡ Financial Tool Layer**: Deterministic execution nodes for dynamic parameters (Amortization Calculator, Debt-to-Income / Credit Scoring, and Macroeconomic APIs).
+- **🛡️ Fact-Check Loop**: Iterative LangGraph verification node that checks claim grounding against statutory chunks, automatically retrying generation or attaching disclaimers.
+- **🔐 Stateful & Secure**: Multi-tenant thread isolation with async PostgreSQL + `pgvector` storage, JWT auth, and LangGraph Postgres checkpointers.
+
+---
 
 ## 💻 Tech Stack
 
-- **Backend**: FastAPI, LangGraph, LangChain, SQLAlchemy, Pydantic v2
-- **Vector Store**: PostgreSQL + pgvector (via `langchain-postgres`)
-- **Checkpointer**: LangGraph Postgres Checkpointer (async)
-- **Frontend**: Streamlit
-- **LLM/Embeddings**: OpenAI-compatible models (configurable base URLs)
+- **Orchestration**: LangGraph, LangChain, Pydantic v2
+- **Models**: `qwen/qwen3.7-flash` (Planner/HyDE/Fact-Check), `qwen/qwen3-max` (Answer Generation)
+- **Retrieval Engine**: Pinecone (Dense), BM25 (Sparse), Cohere Rerank v3.5
+- **Backend & Database**: FastAPI, Async SQLAlchemy 2.0, PostgreSQL + `pgvector`
+- **Frontend**: Streamlit (Streaming UI)
 
-## 📋 Prerequisites
-
-- Python 3.12+
-- Docker and Docker Compose (recommended for Postgres + full stack)
-
+--
 ## 📦 Quick Start (Docker Compose)
 
 1. Copy environment template and edit values:
@@ -42,161 +40,112 @@ Services:
 - API Docs: `http://localhost:8000/api/v1/docs`
 - Frontend UI: `http://localhost:8501`
 
-Notes:
-- The `pgvector/pgvector:pg16` image includes the `vector` extension. If you use your own Postgres, ensure `CREATE EXTENSION IF NOT EXISTS vector;` is enabled.
-
-## 🧰 Local Development
-
-### 1) Backend (FastAPI)
-
-```bash
+🛠️ Local Development
+1. Backend (FastAPI)
+Bash
 cd backend
 python -m venv .venv
-.venv/Scripts/activate     # Windows
-# source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
+uvicorn app.main:app --reload --port 8000
 
-Ensure a Postgres instance is running with pgvector. Example (Docker):
-```bash
-docker run --name langgraph_postgres -p 5432:5432 \
-  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test -e POSTGRES_DB=langgraph_db \
-  -d pgvector/pgvector:pg16
-```
-
-Run the API:
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --reload-dir ./app
-```
-
-### 2) Frontend (Streamlit)
-
-```bash
+2. Frontend (Streamlit)
+Bash
 cd frontend
 python -m venv .venv
-.venv/Scripts/activate     # Windows
-# source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run gui/main.py
+
+### 🧩 Pipeline Architecture
+### 1. Abstract System Lifecycle
+
+```mermaid
+graph TD
+    UserQuery["User Query & Persona Context"] --> LangGraph["LangGraph Orchestration State Machine"]
+    LangGraph <--> Memory[("Checkpointer / Session Memory")]
+    
+    subgraph PipelineServices ["Pipeline Services"]
+        LangGraph --> Tools["Financial Tool Execution Layer"]
+        LangGraph --> LegalRAG["Legal Law Retrieval Engine"]
+    end
+
+    Tools --> Assembly["Context Assembly Node"]
+    LegalRAG --> Assembly
+    Assembly --> LLMGen["LLM Answer Generation"]
+    LLMGen --> FactCheck{"Fact-Check & Grounding Verification"}
+    FactCheck -- Approved / Handled --> FinalResp["Final User Response"]
 ```
 
-## 🔧 Environment Variables
-
-Create a project-root `.env` (both backend and frontend read from it). Key settings:
-
-Core LLM settings:
-- `OPENROUTER_API_KEY`
-- `MODEL_PROVIDER` (use `openai` for OpenRouter because it is OpenAI-compatible)
-- `MODEL_NAMES` (JSON list, e.g., `["openrouter/free"]`)
-- `MODEL_BASE_URL` (e.g., `https://openrouter.ai/api/v1`)
-- `EMBEDDINGS_MODEL_NAME` (e.g., `nvidia/nemotron-3-embed-1b:free`)
-- `EMBEDDINGS_BASE_URL` (e.g., `https://openrouter.ai/api/v1`)
-- `TAVILY_API_KEY` (for web search tool)
-
-Auth and tokens:
-- `TOKEN_BEARER_URL` (default `/api/v1/auth/login`)
-- `JWT_SECRET` (use a strong, random value)
-- `JWT_ALGORITHM` (e.g., `HS256`)
-- `ACCESS_TOKEN_EXPIRY_MINS` (e.g., `1440`)
-- `REFRESH_TOKEN_EXPIRY_DAYS` (e.g., `1`)
-
-Database and vector store:
-- `POSTGRES_HOST` (e.g., `127.0.0.1` or `postgres` in Docker)
-- `POSTGRES_PORT` (e.g., `5432`)
-- `POSTGRES_USER` (e.g., `postgres`)
-- `POSTGRES_PASSWORD` (e.g., `test`)
-- `POSTGRES_DATABASE` (e.g., `langgraph_db`)
-- `PGVECTOR_COLLECTION_NAME` (e.g., `my_collection`)
-
-Frontend:
-- `BACKEND_BASE_URL` (e.g., `http://127.0.0.1:8000/api/v1` when running locally)
-
-Example values are provided in `env.example`.
-
-## 🧩 API Overview
-
-Base URL: `/api/v1`
-
-Auth:
-- `POST /auth/signup`
-- `POST /auth/login`
-- `GET /auth/logout`
-- `GET /auth/refresh-token`
-
-Users:
-- `GET /users/me`
-- `PUT /users/user-profile/{user_id}`
-- `DELETE /users/user-profile/{user_id}`
-
-Threads:
-- `POST /threads/` (create)
-- `GET /threads/` (list)
-- `GET /threads/{thread_id}` (get)
-- `PATCH /threads/{thread_id}` (update title)
-- `DELETE /threads/{thread_id}` (delete + cascade cleanup of memory and vectors)
-
-Documents:
-- `GET /documents/{thread_id}` (list)
-- `POST /documents/upload/{thread_id}` (upload + async index)
-- `DELETE /documents/{document_id}` (remove + delete chunks from pgvector)
-
-Chat and streaming:
-- `POST /chat/` (public streaming chat; no tools or memory)
-- `POST /chat/{thread_id}` (authenticated streaming agent with tools + memory)
-- `GET /chat/{thread_id}` (retrieve persisted chat history)
-
-API docs:
-- Swagger UI: `http://localhost:8000/api/v1/docs`
-- ReDoc: `http://localhost:8000/api/v1/redoc`
-
-## 📡 Streaming Protocol
-
-Both chat endpoints stream newline-delimited JSON events. Event types include:
-- `llm_chunk`: incremental model output
-- `tool_call`: tool name and arguments when the agent invokes a tool
-- `tool_result`: tool output returned to the agent
-
-Example stream (JSON lines):
-
-```json
-{"type":"tool_call","name":"retrieve_user_documents","args":{"query":"policy overview"}}
-{"type":"tool_result","name":"retrieve_user_documents","content":"...retrieved text..."}
-{"type":"llm_chunk","content":"Here is a summary of your policy..."}
+### 2. LangGraph Execution Workflow
+```mermaid
+graph TD
+    START([START]) --> Planner["Planner Node: qwen/qwen3.7-flash"]
+    
+    Planner --> NeedTool{"Needs Any Financial Tool?"}
+    
+    NeedTool -- Yes --> Extract["Feature Extraction Node<br/>Extracts tool args and checks missing fields"]
+    Extract --> ValidCalls{"Has Valid Tool Calls?"}
+    
+    ValidCalls -- Yes --> Executor["Tool Executor Node: FINANCIAL_TOOLS"]
+    Executor --> LawRet["Law Retrieval Node<br/>Invokes legal RAG pipeline"]
+    
+    NeedTool -- No --> LawRet
+    ValidCalls -- No --> LawRet
+    
+    LawRet --> ContextNode["Assemble Context Node<br/>Builds System Prompt with Tool Data & Laws"]
+    ContextNode --> GenNode["Generate Answer Node: qwen/qwen3-max"]
+    
+    GenNode --> LawRetrieved{"Were Law Chunks Retrieved?"}
+    
+    LawRetrieved -- Yes --> FactCheck["Fact Check Node<br/>Strict Grounding Inspector"]
+    FactCheck --> FCResult{"Fact Check Result"}
+    
+    FCResult -- Grounded --> END([END])
+    FCResult -- "Attempts < 2" --> GenNode
+    FCResult -- "Attempts >= 2" --> Disclaimer["Attach Disclaimer Node<br/>Appends legal fallback message"]
+    
+    Disclaimer --> END
+    LawRetrieved -- No --> END
 ```
 
-## 🔄 Architecture
+### 3. Query Translation & Retrieval Pipeline
+```mermaid
+graph TD
+    MultiTurn["Multi-turn Conversation Messages"] --> Condense["Condense Query Node<br/>Collapses transcript to single legal query"]
+    Condense --> Gate{"Gate Check: should_run_law_retrieval"}
+    
+    Gate -- No Legal Relevance --> Empty["Return Empty Chunk List"]
+    Gate -- Requires Law Verification --> SubQueries
+    
+    subgraph ParallelQuery ["Parallel Sub-Query Execution"]
+        SubQueries["Query Decomposition<br/>Splits into max 3 independent sub-queries"]
+        
+        SubQueries --> SQ1["Sub-Query 1"]
+        SubQueries --> SQ2["Sub-Query 2"]
+        
+        SQ1 --> HyDE1["HyDE Generation: Statute Passage"]
+        HyDE1 --> Dense1["Dense Search<br/>OpenAI text-embedding-3-small + Pinecone"]
+        SQ1 --> Sparse1["Sparse Search<br/>BM25 Index"]
+        
+        Dense1 --> RRF1["Reciprocal Rank Fusion<br/>Combines Dense & BM25 Scores"]
+        Sparse1 --> RRF1
+        
+        SQ2 --> HyDE2["HyDE Generation: Statute Passage"]
+        HyDE2 --> Dense2["Dense Search<br/>OpenAI text-embedding-3-small + Pinecone"]
+        SQ2 --> Sparse2["Sparse Search<br/>BM25 Index"]
+        
+        Dense2 --> RRF2["Reciprocal Rank Fusion<br/>Combines Dense & BM25 Scores"]
+        Sparse2 --> RRF2
+    end
+    
+    RRF1 --> CrossQuery["Cross-Subquery Deduplication<br/>Pools candidates & ranks by match frequency + RRF"]
+    RRF2 --> CrossQuery
+    
+    CrossQuery --> Cutoff["Pre-Rerank Cutoff: Top 20 candidates"]
+    Cutoff --> Cohere["Cohere Reranker: cohere/rerank-v3.5 via OpenRouter"]
+    Cohere --> FinalChunks["Top-N Relevant Law Chunks (Default: 4 chunks)"]
+```
 
-1. Ingestion & Indexing
-   - PDF, DOCX, TXT loaders; chunking via `RecursiveCharacterTextSplitter`
-   - Async indexing into pgvector using `langchain-postgres` with JSONB metadata
-
-2. Retrieval
-   - Semantic similarity search filtered by `thread_id` and `user_id`
-   - Tool: `retrieve_user_documents` leverages the vector store retriever
-
-3. Agent & Generation
-   - LangGraph ReAct agent (`create_react_agent`) with tools (documents + Tavily)
-   - Configurable models via `MODEL_NAMES`
-   - End-to-end streaming
-
-4. Memory
-   - LangGraph Postgres checkpointer (async) stores per-thread chat histories
-   - Thread deletion cleans up checkpointer state and related vector chunks
-
-## 🖼️ Screenshots
-
-### Unauthenticated Home Page
-![home](./screenshots/home.png)
-
-### Authenticated Home Page
-![home-authenticated](./screenshots/home-authenticated.png)
-
-## 📝 License
-
-Licensed under the [MIT License](./LICENSE).
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open an issue or submit a PR.
-
-
+📝 License
+Licensed under the MIT License.
