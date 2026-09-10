@@ -196,5 +196,7 @@ logs
 *.db
 tmp/
 
-backend\app\bm25_rules.pkl
-backend\app\final_kmeans_model.joblib
+backend/app/bm25_rules.pkl
+backend/app/final_kmeans_model.joblib
+*.pkl
+*.joblib
