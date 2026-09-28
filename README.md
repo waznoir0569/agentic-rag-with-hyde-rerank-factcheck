@@ -1,4 +1,4 @@
-# 🤖 Agentic Retrieval-Augmented Pipeline for Personalized Financial Advisory with Behavioral Personalization and Grounded Legal Retrieval
+# 🤖 Agentic RAG Pipeline for Personalized Financial Advisory with Behavioral Personalization and Grounded Legal Retrieval
 
 > A stateful, persona-adaptive financial advisory system featuring **HyDE query translation**, **GMM psychometric clustering**, **hybrid legal retrieval (Dense + BM25)**, **Cohere reranking**, and automated **fact-checking loops** built with FastAPI, LangGraph, and Streamlit.
 
